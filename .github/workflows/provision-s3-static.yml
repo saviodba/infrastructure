@@ -7,7 +7,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    if: startsWith(github.event.issue.title, 'front')
+    if: startsWith(github.event.issue.title || '', 'front')
 
     steps:
       - name: Checkout Repository
@@ -22,7 +22,7 @@ jobs:
 
       - name: Extract Bucket Name from Issue
         run: |
-          export BUCKET_NAME=$(echo "${{ github.event.issue.title }}")
+          export BUCKET_NAME=$(echo "${{ github.event.issue.title }}" | cut -d ' ' -f 2)
           echo "Bucket Name: $BUCKET_NAME"
           echo "BUCKET_NAME=$BUCKET_NAME" >> $GITHUB_ENV
 
@@ -40,4 +40,4 @@ jobs:
           NUMBER: ${{ github.event.issue.number }}
           REPO: ${{ github.repository }}
           BODY: >
-            O bucket S3 foi criado com sucesso! 🎉      
+            O bucket S3 foi criado com sucesso! 🎉
