@@ -4,6 +4,7 @@ on:
   issues:
     types:
       - opened  
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -22,22 +23,32 @@ jobs:
 
       - name: Extract Bucket Name from Issue
         run: |
-          export BUCKET_NAME=$(echo "${{ github.event.issue.title }}")
+          BUCKET_NAME=$(echo "${{ github.event.issue.title }}" | cut -d ' ' -f 2)
           echo "Bucket Name: $BUCKET_NAME"
           echo "BUCKET_NAME=$BUCKET_NAME" >> $GITHUB_ENV
 
       - name: Run Terraform
+        id: terraform
         run: |
-          cd terraform
-          cd s3-bucket-static
+          cd terraform/s3-bucket-static
           terraform init
           terraform apply -auto-approve -var="bucket_name=${{ env.BUCKET_NAME }}"
+        continue-on-error: true  # Permite que o workflow continue mesmo se esta etapa falhar
 
-      - name: Add comment
-        run: gh issue comment "$NUMBER" --repo "$REPO" --body "$BODY"
+      - name: Add success comment
+        if: steps.terraform.outcome == 'success'
+        run: |
+          gh issue comment "${{ github.event.issue.number }}" --repo "${{ github.repository }}" --body "✅ O bucket S3 foi criado com sucesso! 🎉"
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-          NUMBER: ${{ github.event.issue.number }}
-          REPO: ${{ github.repository }}
-          BODY: >
-            O bucket S3 foi criado com sucesso! 🎉      
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add failure comment
+        if: steps.terraform.outcome != 'success'
+        run: |
+          gh issue comment "${{ github.event.issue.number }}" --repo "${{ github.repository }}" --body "❌ Falha ao criar o bucket S3. Por favor, verifique os logs para mais detalhes."
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fail the job if Terraform failed
+        if: steps.terraform.outcome != 'success'
+        run: exit 1
